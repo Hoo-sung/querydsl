@@ -1,8 +1,8 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
-import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.ExpressionUtils;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -558,7 +559,7 @@ public class QuerydslBasicTest {
      * Dto의 필드가 entity의 변수명과 다를때에는 as사용해라
      * 프로퍼티나, 필드 접근 생성 방식에서 이름이 다를 때, 해결방안
      * 1. Subquery는 ExpressionUtils.as(subquery, "필드명")로 감싸야 한다
-     *
+     * <p>
      * 생성자 접근과 달리, field 접근은 이름을 보고 들어가서 이름이 같아야 한다
      */
     @Test
@@ -607,5 +608,56 @@ public class QuerydslBasicTest {
                 .from(member)
                 .fetch();
     }
+
+
+    /**
+     * QueryProjection은 컴파일 시점에 생성자의 인자 체크도 되고 좋다. 그래서 안전한 방법이다.
+     * 단점:아키텍처적인 문제이다. Dto가 querydsl에 의존하는 문제가 생긴다.
+     * Repository에서 Dto를 조회해서 service, Controller로 Dto가 흘러가는데, 여기에 queryprojection이 import되어 있어서 의존성을 갖는게
+     * 단점이다.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void findDtoByQueryProjection() throws Exception {
+        List<MemberDto> result = queryFactory
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    /**
+     * null인 cond는 조건에 안들어가고, null이 아니면 조건건다. (똥적 쿼리)
+     *
+     * @throws Exception
+     */
+    @Test
+    public void dynamicQuery_BooleanBuilder() throws Exception {
+        String usernameParam = "member1";
+        Integer ageParam = 10;
+
+        List<Member> result = searchMember1(usernameParam, ageParam);
+        Assertions.assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+
+        BooleanBuilder builder = new BooleanBuilder();
+        if (usernameCond != null) {
+            builder.and(member.username.eq(usernameCond));
+        }
+        if (ageCond != null) {
+            builder.and(member.age.eq(ageCond));
+        }
+
+        return queryFactory.selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
+
 
 }
