@@ -10,6 +10,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
+import com.querydsl.jpa.impl.JPADeleteClause;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -19,6 +20,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
 import study.querydsl.dto.QMemberDto;
@@ -690,9 +692,107 @@ public class QuerydslBasicTest {
      * where 조건에 null 값은 무시가 된다.
      * 위의 요소들은 아래와 같이 조립을 할 수 있다. 이것은 엄청난 장점이다. 생산성이 높아진다.
      */
-    private BooleanExpression allEq(String usernameCond, Integer ageCond){
+    private BooleanExpression allEq(String usernameCond, Integer ageCond) {
         return usernameEq(usernameCond).and(ageEq(ageCond));
     }
 
-    //광고 상태 isSValid 이고 날짜가 IN => isServiceable이라는 로직이 있다고 하자
+    //광고 상태 isSValid 이고 날짜가 IN => isServiceable이라는 로직이 있다고 하자 이때 유용함
+
+
+    /**
+     * bulk연산은 영속성 상태를 무시하고, DB로 바로 쿼리가 나간다.
+     * 즉) DB의 상태와 영속성 컨텍스트의 상태가 달라진다.
+     */
+    @Test
+    @Commit
+    public void bulkUpdate() throws Exception {
+
+        //meber1 = 10 -> member1
+        //member2 = 20 -> member2
+        //member3 = 30 -> member3
+        //member4 = 40 -> member4
+
+        long count = queryFactory
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();
+
+        //Query후 DB 상태
+        //member1 = 10 -> 비회원
+        //member2 = 20 -> 비회원
+        //member3 = 30 -> member3
+        //member4 = 40 -> member4
+
+        //반면 영속성 컨텍스트의 상태
+        //meber1 = 10 -> member1
+        //member2 = 20 -> member2
+        //member3 = 30 -> member3
+        //member4 = 40 -> member4
+
+
+        em.flush();//flush해서 영속성 컨텍스트랑 DB랑 상태를 맞춘다
+        em.clear();//영속성 컨텍스트를 비운다
+
+        /**
+         * 이렇게 되면, 영속성 컨텍스트에 있기 때문에 영속성 컨텍스트에 있는 것을 가져온다
+         * 그러므로 일치히지 않은 값을 가져온다
+         * 영속성 컨텍스트에서 가져온 값이 우선권을 가진다
+         */
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .fetch();
+
+        for (Member member1 : result) {
+            System.out.println("member1 = " + member1);
+        }
+    }
+
+    @Test
+    public void bulkAdd() throws Exception {
+        queryFactory
+                .update(member)
+                .set(member.age, member.age.multiply(2))
+                .execute();
+    }
+
+    @Test
+    public void bulkDelete() throws Exception {
+        long count = queryFactory
+                .delete(member)
+                .where(member.age.gt(18))
+                .execute();
+    }
+    
+    @Test
+    public void sqlFunction() throws Exception {
+        List<String> result = queryFactory
+                .select(Expressions.stringTemplate(
+                        "function('replace', {0}, {1}, {2})",
+                        member.username, "member", "M"))
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    public void sqlFunction2() throws Exception {
+        List<String> result = queryFactory
+                .select(member.username)
+                .from(member)
+//                .where(member.username.eq(
+//                        Expressions.stringTemplate("function('lower',{0})", member.username)))
+                .where(member.username.eq(member.username.lower()))
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+
+
 }
