@@ -4,7 +4,9 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -659,5 +661,38 @@ public class QuerydslBasicTest {
                 .fetch();
     }
 
+    @Test
+    public void dynamicQueryWhereParam() throws Exception {
+        String usernameParam = "member1";
+        Integer ageParam = null;
 
+        List<Member> result = searchMember2(usernameParam, ageParam);
+        Assertions.assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+        return queryFactory
+                .selectFrom(member)
+                .where(usernameEq(usernameCond), ageEq(ageCond))
+//                .where(allEq(usernameCond,ageCond))
+                .fetch();
+    }
+
+    private BooleanExpression usernameEq(String usernameCond) {
+        return usernameCond != null ? member.username.eq(usernameCond) : null;
+    }
+
+    private BooleanExpression ageEq(Integer ageCond) {
+        return ageCond != null ? member.age.eq(ageCond) : null;
+    }
+
+    /**
+     * where 조건에 null 값은 무시가 된다.
+     * 위의 요소들은 아래와 같이 조립을 할 수 있다. 이것은 엄청난 장점이다. 생산성이 높아진다.
+     */
+    private BooleanExpression allEq(String usernameCond, Integer ageCond){
+        return usernameEq(usernameCond).and(ageEq(ageCond));
+    }
+
+    //광고 상태 isSValid 이고 날짜가 IN => isServiceable이라는 로직이 있다고 하자
 }
