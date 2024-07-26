@@ -73,11 +73,11 @@ class MemberJpaRepositoryTest {
         em.persist(memeber4);
 
         MemberSearchCond condition = new MemberSearchCond();
-//        condition.setAgeGoe(35);
-//        condition.setAgeLoe(45);
-//        condition.setTeamName("teamB");
+        condition.setAgeGoe(35);
+        condition.setAgeLoe(45);
+        condition.setTeamName("teamB");
 
-        List<MemberTeamDto> result = memberJpaRepository.searchByBuilder(condition);
-//        assertThat(result).extracting("username").containsExactly("member3", "member4");
+        List<MemberTeamDto> result = memberJpaRepository.search(condition);
+        assertThat(result).extracting("username").containsExactly("member4");
     }
 }
