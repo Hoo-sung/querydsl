@@ -9,3 +9,4 @@ public class MemberSearchCond {
     private String teamName;
     private Integer ageGoe;
     private Integer ageLoe;
+}
